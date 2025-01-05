@@ -1,6 +1,8 @@
 import os
 
 from dotenv import find_dotenv, load_dotenv
+from fastapi import FastAPI
+from pydantic import BaseModel
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 import dotenv
@@ -10,7 +12,12 @@ load_dotenv(dotenv_file)
 
 client = WebClient(token=os.environ['API_KEY'])
 
-def send_message_to_private_channel(message):
+app = FastAPI()
+
+class AlertMessage(BaseModel):
+    message: str
+
+async def send_message_to_private_channel(message):
     try:
         response = client.chat_postMessage(
             channel=os.environ['CHANNEL_ID'],
@@ -31,7 +38,12 @@ def send_message_to_private_channel(message):
                 }
             ]
         )
+
+        return {"status": "success", "message": response["message"][message]}
     except SlackApiError as e:
         print(f"Error sending message: {e.response['error']}")
 
-send_message_to_private_channel("test")
+@app.post("/send-alert")
+async def send_alert(alert: AlertMessage):
+    result = await send_message_to_private_channel(alert)
+    return result
